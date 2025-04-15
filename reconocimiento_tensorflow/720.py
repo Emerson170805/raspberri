@@ -7,7 +7,7 @@ import mediapipe as mp
 app = Flask(__name__)
 
 # Cargar modeloaaa
-modelo = tf.keras.models.load_model('modelo_emociones.h5')
+modelo = tf.keras.models.load_model('/var/www/html/rasp/reconocimiento_tensorflow/modelo_emociones.h5')
 etiquetas = ['feliz', 'neutral', 'sorprendido', 'triste']
 
 # Iniciar cámara (usa 2 si tienes varias cámaras, cambia si es necesario)
