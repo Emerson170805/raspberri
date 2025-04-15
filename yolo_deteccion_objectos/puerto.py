@@ -5,12 +5,16 @@ from ultralytics import YOLO
 
 app = Flask(__name__)
 
-# Configurar el dispositivo
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = YOLO("yolov8s.pt")
-model.to(device).half() if device == "cuda" else model.to(device)
+# ✅ Configuración del modelo y dispositivo
+# En Raspberry Pi no tenemos GPU, por lo tanto usamos solo CPU
+device = "cpu"
 
-# Traducción de clases al español
+# ✅ Cargar el modelo más ligero para Raspberry Pi
+# 'yolov8n.pt' = Nano, mucho más liviano y rápido que 's' o 'm'
+model = YOLO("yolov8n.pt")
+model.to(device)  # Asegurar que el modelo corre en CPU
+
+# ✅ Diccionario reducido de clases traducidas al español (solo lo necesario)
 clases_esp = {
     "person": "Persona", "bicycle": "Bicicleta", "car": "Coche", "motorcycle": "Moto", "airplane": "Avión",
     "bus": "Autobús", "train": "Tren", "truck": "Camión", "boat": "Barco",
@@ -39,10 +43,11 @@ clases_esp = {
     "hair drier": "Secador de Pelo", "toothbrush": "Cepillo de Dientes",
 }
 
-# Configurar la cámara
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# ✅ Configurar la cámara (webcam) a una resolución baja para ganar fluidez
+# Cuanto menor sea la resolución, menor será el procesamiento necesario
+cap = cv2.VideoCapture(0)  # Cambiar si usas una cámara USB diferente
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 854)   # Ancho reducido
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)  # Alto reducido
 
 def gen_frames():
     while True:
@@ -50,7 +55,10 @@ def gen_frames():
         if not success:
             break
 
-        results = model(frame, imgsz=640, conf=0.75, iou=0.3, device=device)
+        # ✅ Ejecutar la detección con resolución de entrada menor
+        # imgsz = 416 es más rápido que usar 640 o 720
+        # conf = 0.5 filtra solo detecciones con más de 50% de confianza
+        results = model(frame, imgsz=416, conf=0.6, iou=0.3, device=device)
 
         for result in results:
             for box in result.boxes:
@@ -62,37 +70,43 @@ def gen_frames():
                 conf = float(box.conf[0])
                 text = f"{label_esp} {conf:.2f}"
 
+                if conf < 0.5:
+                    continue  # ✅ Ignorar objetos con baja probabilidad
+
+                # ✅ Colores personalizados: verde para personas, azul para otros
                 color = (0, 255, 0) if label == "person" else (255, 0, 0)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-                (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-                cv2.rectangle(frame, (x1, y1 - text_height - 10), (x1 + text_width + 6, y1), color, -1)
-                cv2.putText(frame, text, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                # ✅ Mostrar texto encima del objeto detectado
+                (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                cv2.rectangle(frame, (x1, y1 - text_height - 6), (x1 + text_width + 4, y1), color, -1)
+                cv2.putText(frame, text, (x1 + 2, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
+        # ✅ Codificar el frame para transmitirlo al navegador
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-
-# Ruta principal con un HTML básico
+# ✅ Página web básica para mostrar el video
 @app.route('/')
 def index():
     return render_template_string("""
         <html>
-        <head><title>Detección YOLOv8</title></head>
+        <head><title>YOLOv8 en Raspberry Pi</title></head>
         <body style="text-align:center;">
-            <h1>Detección en Tiempo Real con YOLOv8</h1>
-            <img src="{{ url_for('video_feed') }}">
+            <h2>Detección en Tiempo Real - Raspberry Pi 4</h2>
+            <img src="{{ url_for('video_feed') }}" style="border:2px solid black;">
         </body>
         </html>
     """)
 
-# Ruta de video
+# ✅ Ruta de video en tiempo real
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# Iniciar servidor
+# ✅ Ejecutar la app Flask en modo multihilo para no bloquear
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    # 'threaded=True' mejora el rendimiento de Flask en la Pi
+    app.run(host='0.0.0.0', port=5000, threaded=True)
