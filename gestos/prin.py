@@ -86,7 +86,7 @@ def detectar_tecla():
                 elif tecla == 'B':
                     threading.Thread(target=lanzar_script, args=('script_b', '/var/www/html/rasp/gestos/collect_gesture.py')).start()
                     lcd.clear()
-                    lcd.write_string("Detectando...")
+                    lcd.write_string("Iniciando...")
                 elif tecla == 'C':
                     threading.Thread(target=lanzar_script, args=('script_c', '/var/www/html/rasp/gestos/train_model.py')).start()
                     lcd.clear()
