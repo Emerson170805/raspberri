@@ -46,8 +46,8 @@ clases_esp = {
 # ✅ Configurar la cámara (webcam) a una resolución baja para ganar fluidez
 # Cuanto menor sea la resolución, menor será el procesamiento necesario
 cap = cv2.VideoCapture(0)  # Cambiar si usas una cámara USB diferente
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 854)   # Ancho reducido
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)  # Alto reducido
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 500)   # Ancho reducido
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 250)  # Alto reducido
 
 def gen_frames():
     while True:
@@ -58,7 +58,7 @@ def gen_frames():
         # ✅ Ejecutar la detección con resolución de entrada menor
         # imgsz = 416 es más rápido que usar 640 o 720
         # conf = 0.5 filtra solo detecciones con más de 50% de confianza
-        results = model(frame, imgsz=416, conf=0.6, iou=0.3, device=device)
+        results = model(frame, imgsz=416, conf=0.1, iou=0.3, device=device)
 
         for result in results:
             for box in result.boxes:
